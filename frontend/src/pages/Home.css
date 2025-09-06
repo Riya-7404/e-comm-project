@@ -1,0 +1,13 @@
+.home-container {
+  padding: 50px;
+  text-align: center;
+  min-height: 100vh;
+  background-image: url('../assets/background.jpg');
+  background-size: cover;
+  background-position: center;
+  color: #fff;
+}
+.home-container button {
+  padding: 10px 20px;
+  margin: 0 5px;
+}
