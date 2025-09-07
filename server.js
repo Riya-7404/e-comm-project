@@ -1,6 +1,6 @@
 // ---------------- Load environment variables ----------------
 const path = require("path");
-require("dotenv").config({ path: path.join(__dirname, ".env") }); // ensure .env is loaded
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 
 const express = require("express");
 const mongoose = require("mongoose");
@@ -18,11 +18,11 @@ const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!MONGO_URI) {
-  console.error(" MONGO_URI is missing in .env");
+  console.error("MONGO_URI is missing in .env");
   process.exit(1);
 }
 if (!JWT_SECRET) {
-  console.error(" JWT_SECRET is missing in .env");
+  console.error("JWT_SECRET is missing in .env");
   process.exit(1);
 }
 
@@ -42,7 +42,7 @@ const itemSchema = new mongoose.Schema({
 
 const cartSchema = new mongoose.Schema({
   email: String,
-  items: [mongoose.Schema.Types.ObjectId] // store item IDs
+  items: [mongoose.Schema.Types.ObjectId]
 });
 
 const User = mongoose.model("User", userSchema);
@@ -158,9 +158,9 @@ app.get("/cart", auth, async (req, res) => {
 // ---------------- Serve React Frontend ----------------
 const buildPath = path.join(__dirname, "frontend/build");
 app.use(express.static(buildPath));
-app.get(/.*/, (req, res) => {
+app.get("*", (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
 
 // ---------------- Start Server ----------------
-app.listen(PORT, () => console.log(` Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
