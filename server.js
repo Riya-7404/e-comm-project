@@ -1,41 +1,58 @@
+// ---------------- Load environment variables ----------------
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") }); // ensure .env is loaded
+
 const express = require("express");
+const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
-const path = require("path");
 const cors = require("cors");
 
 const app = express();
 app.use(bodyParser.json());
-
-// Enable CORS (for development, allow frontend to call backend)
 app.use(cors());
 
-const SECRET = "secret123";
+// ---------------- Config ----------------
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI;
+const JWT_SECRET = process.env.JWT_SECRET;
 
-// In-memory DB (reset when server restarts)
-let users = [];
-let items = [];
-let carts = {};
+if (!MONGO_URI) {
+  console.error(" MONGO_URI is missing in .env");
+  process.exit(1);
+}
+if (!JWT_SECRET) {
+  console.error(" JWT_SECRET is missing in .env");
+  process.exit(1);
+}
 
-// ---------------- AUTH ----------------
-app.post("/signup", (req, res) => {
-  const { email, password } = req.body;
-  if (users.find(u => u.email === email)) {
-    return res.status(400).json({ error: "User already exists" });
-  }
-  users.push({ email, password });
-  res.json({ message: "Signup successful" });
+console.log("Loaded MONGO_URI:", MONGO_URI);
+
+// ---------------- Mongoose Models ----------------
+const userSchema = new mongoose.Schema({
+  email: { type: String, unique: true, required: true },
+  password: { type: String, required: true }
 });
 
-app.post("/login", (req, res) => {
-  const { email, password } = req.body;
-  const user = users.find(u => u.email === email && u.password === password);
-  if (!user) {
-    return res.status(401).json({ error: "Invalid credentials" });
-  }
-  const token = jwt.sign({ email }, SECRET, { expiresIn: "1h" });
-  res.json({ token });
+const itemSchema = new mongoose.Schema({
+  name: String,
+  category: String,
+  price: Number
 });
+
+const cartSchema = new mongoose.Schema({
+  email: String,
+  items: [mongoose.Schema.Types.ObjectId] // store item IDs
+});
+
+const User = mongoose.model("User", userSchema);
+const Item = mongoose.model("Item", itemSchema);
+const Cart = mongoose.model("Cart", cartSchema);
+
+// ---------------- Connect to MongoDB ----------------
+mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("MongoDB Connected"))
+  .catch(err => console.error("MongoDB connection error:", err));
 
 // ---------------- Middleware ----------------
 function auth(req, res, next) {
@@ -43,69 +60,107 @@ function auth(req, res, next) {
   if (!token) return res.status(401).json({ error: "No token provided" });
 
   try {
-    req.user = jwt.verify(token, SECRET);
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });
   }
 }
 
-// ---------------- ITEMS CRUD ----------------
-app.post("/items", auth, (req, res) => {
-  const item = { id: items.length + 1, ...req.body };
-  items.push(item);
+// ---------------- Routes ----------------
+
+// Signup
+app.post("/signup", async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const exists = await User.findOne({ email });
+    if (exists) return res.status(400).json({ error: "User already exists" });
+
+    const user = new User({ email, password });
+    await user.save();
+    res.json({ message: "Signup successful" });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Login
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const user = await User.findOne({ email, password });
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    const token = jwt.sign({ email }, JWT_SECRET, { expiresIn: "1h" });
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ---------------- Items CRUD ----------------
+app.post("/items", auth, async (req, res) => {
+  const item = new Item(req.body);
+  await item.save();
   res.json(item);
 });
 
-app.get("/items", (req, res) => {
-  let result = [...items];
-  if (req.query.category) result = result.filter(i => i.category === req.query.category);
-  if (req.query.price) result = result.filter(i => i.price <= Number(req.query.price));
-  res.json(result);
+app.get("/items", async (req, res) => {
+  let query = {};
+  if (req.query.category) query.category = req.query.category;
+  if (req.query.price) query.price = { $lte: Number(req.query.price) };
+
+  const items = await Item.find(query);
+  res.json(items);
 });
 
-app.put("/items/:id", auth, (req, res) => {
-  const id = +req.params.id;
-  const item = items.find(i => i.id === id);
+app.put("/items/:id", auth, async (req, res) => {
+  const item = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true });
   if (!item) return res.status(404).json({ error: "Item not found" });
-  Object.assign(item, req.body);
   res.json(item);
 });
 
-app.delete("/items/:id", auth, (req, res) => {
-  items = items.filter(i => i.id !== +req.params.id);
+app.delete("/items/:id", auth, async (req, res) => {
+  await Item.findByIdAndDelete(req.params.id);
   res.json({ message: "Item deleted" });
 });
 
-// ---------------- CART ----------------
-app.post("/cart/add", auth, (req, res) => {
+// ---------------- Cart ----------------
+app.post("/cart/add", auth, async (req, res) => {
   const email = req.user.email;
-  if (!carts[email]) carts[email] = [];
-  carts[email].push(req.body.itemId);
-  res.json(carts[email]);
+  let cart = await Cart.findOne({ email });
+  if (!cart) cart = new Cart({ email, items: [] });
+
+  cart.items.push(req.body.itemId);
+  await cart.save();
+  res.json(cart.items);
 });
 
-app.delete("/cart/remove/:id", auth, (req, res) => {
+app.delete("/cart/remove/:id", auth, async (req, res) => {
   const email = req.user.email;
-  carts[email] = (carts[email] || []).filter(id => id !== +req.params.id);
-  res.json(carts[email]);
+  const cart = await Cart.findOne({ email });
+  if (!cart) return res.json([]);
+
+  cart.items = cart.items.filter(id => id.toString() !== req.params.id);
+  await cart.save();
+  res.json(cart.items);
 });
 
-app.get("/cart", auth, (req, res) => {
+app.get("/cart", auth, async (req, res) => {
   const email = req.user.email;
-  const cartItems = (carts[email] || []).map(id => items.find(i => i.id === id));
-  res.json(cartItems);
+  const cart = await Cart.findOne({ email });
+  if (!cart) return res.json([]);
+
+  const items = await Item.find({ _id: { $in: cart.items } });
+  res.json(items);
 });
 
-// ---------------- Serve Frontend ----------------
+// ---------------- Serve React Frontend ----------------
 const buildPath = path.join(__dirname, "frontend/build");
 app.use(express.static(buildPath));
-
-
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
 
-// ---------------- Start server ----------------
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// ---------------- Start Server ----------------
+app.listen(PORT, () => console.log(` Server running on http://localhost:${PORT}`));
