@@ -158,9 +158,10 @@ app.get("/cart", auth, async (req, res) => {
 // ---------------- Serve React Frontend ----------------
 const buildPath = path.join(__dirname, "frontend/build");
 app.use(express.static(buildPath));
-app.get("*", (req, res) => {
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(buildPath, "index.html"));
 });
+
 
 // ---------------- Start Server ----------------
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
