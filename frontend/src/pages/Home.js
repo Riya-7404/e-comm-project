@@ -1,8 +1,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import background from "../assets/background.jpg"; // Replace with your own background image
 
 const Home = () => {
+  const background = "https://wallpapercave.com/wp/wp3628276.jpg";
+
   const categories = [
     { name: "Electronics", img: "https://images.unsplash.com/photo-1639026540100-045bb7632b0b?auto=format&fit=crop&w=500&q=80" },
     { name: "Fashion", img: "https://plus.unsplash.com/premium_photo-1664202526559-e21e9c0fb46a?auto=format&fit=crop&w=500&q=80" },
@@ -41,35 +42,27 @@ const Home = () => {
         <h2 style={{ fontSize: "28px", color: "#ffcc00" }}>E-Commerce SPA</h2>
         <div>
           <Link to="/signup">
-            <button
-              style={{
-                marginRight: 15,
-                padding: "14px 28px",
-                fontSize: "18px",
-                background: "#ff6600",
-                border: "none",
-                color: "#fff",
-                borderRadius: 8,
-                cursor: "pointer"
-              }}
-            >
-              Signup
-            </button>
+            <button style={{
+              marginRight: 15,
+              padding: "14px 28px",
+              fontSize: "18px",
+              background: "#ff6600",
+              border: "none",
+              color: "#fff",
+              borderRadius: 8,
+              cursor: "pointer"
+            }}>Signup</button>
           </Link>
           <Link to="/login">
-            <button
-              style={{
-                padding: "14px 28px",
-                fontSize: "18px",
-                background: "#ff6600",
-                border: "none",
-                color: "#fff",
-                borderRadius: 8,
-                cursor: "pointer"
-              }}
-            >
-              Login
-            </button>
+            <button style={{
+              padding: "14px 28px",
+              fontSize: "18px",
+              background: "#ff6600",
+              border: "none",
+              color: "#fff",
+              borderRadius: 8,
+              cursor: "pointer"
+            }}>Login</button>
           </Link>
         </div>
       </nav>
